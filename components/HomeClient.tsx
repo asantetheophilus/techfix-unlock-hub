@@ -58,17 +58,17 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
     const speakGreeting = () => {
       if (hasSpoken) return;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        // Cancel any active speech to avoid overlaps
+        // Cancel any pending speech to clear stuck queues
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(greetingText);
-        utterance.rate = 0.90; // Clear speaking rate
-        utterance.pitch = 1.1;  // Slightly higher pitch for standard female voice feel
+        utterance.rate = 0.90; // Clean, natural rate
+        utterance.pitch = 1.15; // Standard high-quality female tone
         
         const voices = window.speechSynthesis.getVoices();
         const englishVoices = voices.filter(v => v.lang.startsWith("en-"));
         
-        // Comprehensive priority female voice search
+        // Comprehensive list of female voice identifiers
         const femaleVoiceNames = [
           "samantha", "zira", "sara", "karen", "susan", "hazel", 
           "moira", "tessa", "veena", "fiona", "victoria", "female", 
@@ -100,9 +100,21 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
           utterance.voice = selectedVoice;
         }
 
+        // Store the utterance globally on the window to prevent Chrome's garbage-collection silence bug
+        (window as any)._activeUtterance = utterance;
+
         utterance.onstart = () => {
           hasSpoken = true;
           removeListeners();
+        };
+
+        utterance.onend = () => {
+          hasSpoken = true;
+          (window as any)._activeUtterance = null;
+        };
+
+        utterance.onerror = (e) => {
+          console.error("SpeechSynthesis error:", e);
         };
 
         window.speechSynthesis.speak(utterance);
@@ -116,35 +128,19 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
     const removeListeners = () => {
       window.removeEventListener("click", startGreeting);
       window.removeEventListener("touchstart", startGreeting);
-      window.removeEventListener("scroll", startGreeting);
-      window.removeEventListener("mousemove", startGreeting);
+      window.removeEventListener("mousedown", startGreeting);
       window.removeEventListener("keydown", startGreeting);
     };
 
-    // Try speaking immediately on load
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      if (window.speechSynthesis.getVoices().length > 0) {
-        speakGreeting();
-      } else {
-        window.speechSynthesis.onvoiceschanged = () => {
-          speakGreeting();
-        };
-      }
-    }
-
-    // Because browsers block autoplay audio until user interaction, 
-    // we bind multiple common interaction listeners so it plays at the absolute first second of any visit engagement!
+    // Bind guaranteed user-initiated gesture events (click, touch, press)
+    // We avoid scroll/mousemove triggers initially because some browsers treat them as unapproved activation
     window.addEventListener("click", startGreeting);
     window.addEventListener("touchstart", startGreeting, { passive: true });
-    window.addEventListener("scroll", startGreeting, { passive: true });
-    window.addEventListener("mousemove", startGreeting, { passive: true });
+    window.addEventListener("mousedown", startGreeting);
     window.addEventListener("keydown", startGreeting);
 
     return () => {
       removeListeners();
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.onvoiceschanged = null;
-      }
     };
   }, []);
 
