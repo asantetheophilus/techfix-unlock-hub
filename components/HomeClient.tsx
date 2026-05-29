@@ -48,42 +48,77 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
   const router = useRouter();
   const [trackingId, setTrackingId] = useState("");
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
-  const [showSpeechToast, setShowSpeechToast] = useState(true);
 
-  // Welcome Text-to-Speech voice greeting (Artistic SpeechSynthesis)
+  // Welcome Text-to-Speech voice greeting (Artistic SpeechSynthesis with Female Voice Autoplay Bypass)
   useEffect(() => {
     // Separate phone digits with spaces so the browser reads them out digit-by-digit
     const greetingText = "You are welcome to Future Tech Website where you can get all your solution from and you can contact him on 0 5 5 7 1 8 5 3 5 5.";
+    let hasSpoken = false;
 
     const speakGreeting = () => {
+      if (hasSpoken) return;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         // Cancel any active speech to avoid overlaps
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(greetingText);
-        utterance.rate = 0.92; // Slightly slower for warm clear Ghanaian comprehension
-        utterance.pitch = 1.05; 
+        utterance.rate = 0.90; // Clear speaking rate
+        utterance.pitch = 1.1;  // Slightly higher pitch for standard female voice feel
         
-        // If autoplay starts successfully, hide the prompt toast
-        utterance.onstart = () => {
-          setShowSpeechToast(false);
-        };
-        
-        // Pick English female/standard voice if available
         const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(
-          (v) => 
-            v.lang.startsWith("en-US") || 
-            v.lang.startsWith("en-GB") || 
-            v.name.includes("Google") ||
-            v.name.includes("Natural")
-        );
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
+        const englishVoices = voices.filter(v => v.lang.startsWith("en-"));
+        
+        // Comprehensive priority female voice search
+        const femaleVoiceNames = [
+          "samantha", "zira", "sara", "karen", "susan", "hazel", 
+          "moira", "tessa", "veena", "fiona", "victoria", "female", 
+          "google us english", "google uk english female", "natural"
+        ];
+        
+        let selectedVoice = englishVoices.find(v => {
+          const nameLower = v.name.toLowerCase();
+          return femaleVoiceNames.some(femaleName => nameLower.includes(femaleName)) && !nameLower.includes("male");
+        });
+        
+        if (!selectedVoice) {
+          selectedVoice = englishVoices.find(v => {
+            const nameLower = v.name.toLowerCase();
+            return !nameLower.includes("david") && 
+                   !nameLower.includes("mark") && 
+                   !nameLower.includes("george") && 
+                   !nameLower.includes("richard") && 
+                   !nameLower.includes("ravi") && 
+                   !nameLower.includes("male");
+          });
         }
+        
+        if (!selectedVoice) {
+          selectedVoice = englishVoices[0] || voices.find(v => v.default) || voices[0];
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        utterance.onstart = () => {
+          hasSpoken = true;
+          removeListeners();
+        };
 
         window.speechSynthesis.speak(utterance);
       }
+    };
+
+    const startGreeting = () => {
+      speakGreeting();
+    };
+
+    const removeListeners = () => {
+      window.removeEventListener("click", startGreeting);
+      window.removeEventListener("touchstart", startGreeting);
+      window.removeEventListener("scroll", startGreeting);
+      window.removeEventListener("mousemove", startGreeting);
+      window.removeEventListener("keydown", startGreeting);
     };
 
     // Try speaking immediately on load
@@ -98,16 +133,18 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
     }
 
     // Because browsers block autoplay audio until user interaction, 
-    // we also bind a one-time click listener to the window so if the first try was blocked, 
-    // it plays immediately when the user first clicks anywhere on the site!
-    const handleFirstClick = () => {
-      speakGreeting();
-      window.removeEventListener("click", handleFirstClick);
-    };
+    // we bind multiple common interaction listeners so it plays at the absolute first second of any visit engagement!
+    window.addEventListener("click", startGreeting);
+    window.addEventListener("touchstart", startGreeting, { passive: true });
+    window.addEventListener("scroll", startGreeting, { passive: true });
+    window.addEventListener("mousemove", startGreeting, { passive: true });
+    window.addEventListener("keydown", startGreeting);
 
-    window.addEventListener("click", handleFirstClick);
     return () => {
-      window.removeEventListener("click", handleFirstClick);
+      removeListeners();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
@@ -666,67 +703,6 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
           </div>
         </div>
       </section>
-
-      {/* Premium Floating Welcome Voice Toast (Bypasses Browser Autoplay Restrictions 100% reliably) */}
-      <AnimatePresence>
-        {showSpeechToast && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ duration: 0.5, delay: 1.5 }}
-            className="fixed bottom-6 right-6 z-50 max-w-sm rounded-2xl border border-brand-cyan/30 bg-brand-dark/95 p-5 shadow-[0_0_30px_rgba(0,212,255,0.25)] backdrop-blur-xl flex flex-col gap-3"
-          >
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 shrink-0 rounded-xl bg-brand-navy border border-brand-cyan/20 flex items-center justify-center text-brand-cyan shadow-neon animate-bounce">
-                <Zap className="h-5 w-5 animate-pulse" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-syne text-sm font-bold text-white flex items-center gap-1.5">
-                  Welcome to Future Tech!
-                </h4>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Press the button below to play the live audio welcome greeting and explore our smartphone & satellite solutions!
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 mt-1">
-              <button
-                onClick={() => {
-                  const greetingText = "You are welcome to Future Tech Website where you can get all your solution from and you can contact him on 0 5 5 7 1 8 5 3 5 5.";
-                  if (typeof window !== "undefined" && "speechSynthesis" in window) {
-                    window.speechSynthesis.cancel();
-                    const utterance = new SpeechSynthesisUtterance(greetingText);
-                    utterance.rate = 0.92;
-                    utterance.pitch = 1.05;
-                    const voices = window.speechSynthesis.getVoices();
-                    const preferredVoice = voices.find(
-                      (v) => 
-                        v.lang.startsWith("en-US") || 
-                        v.lang.startsWith("en-GB") || 
-                        v.name.includes("Google") ||
-                        v.name.includes("Natural")
-                    );
-                    if (preferredVoice) utterance.voice = preferredVoice;
-                    window.speechSynthesis.speak(utterance);
-                  }
-                  setShowSpeechToast(false);
-                }}
-                className="flex-grow neon-btn-primary py-2.5 px-4 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
-              >
-                Listen Greeting 🔊
-              </button>
-              <button
-                onClick={() => setShowSpeechToast(false)}
-                className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-400 hover:text-white transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
