@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -48,6 +48,62 @@ export default function HomeClient({ services, reviews }: HomeClientProps) {
   const router = useRouter();
   const [trackingId, setTrackingId] = useState("");
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  // Welcome Text-to-Speech voice greeting (Artistic SpeechSynthesis)
+  useEffect(() => {
+    // Separate phone digits with spaces so the browser reads them out digit-by-digit
+    const greetingText = "You are welcome to Future Tech Website where you can get all your solution from and you can contact him on 0 5 5 7 1 8 5 3 5 5.";
+
+    const speakGreeting = () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        // Cancel any active speech to avoid overlaps
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(greetingText);
+        utterance.rate = 0.92; // Slightly slower for warm clear Ghanaian comprehension
+        utterance.pitch = 1.05; 
+        
+        // Pick English female/standard voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(
+          (v) => 
+            v.lang.startsWith("en-US") || 
+            v.lang.startsWith("en-GB") || 
+            v.name.includes("Google") ||
+            v.name.includes("Natural")
+        );
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+
+    // Try speaking immediately on load
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      if (window.speechSynthesis.getVoices().length > 0) {
+        speakGreeting();
+      } else {
+        window.speechSynthesis.onvoiceschanged = () => {
+          speakGreeting();
+        };
+      }
+    }
+
+    // Because browsers block autoplay audio until user interaction, 
+    // we also bind a one-time click listener to the window so if the first try was blocked, 
+    // it plays immediately when the user first clicks anywhere on the site!
+    const handleFirstClick = () => {
+      speakGreeting();
+      window.removeEventListener("click", handleFirstClick);
+    };
+
+    window.addEventListener("click", handleFirstClick);
+    return () => {
+      window.removeEventListener("click", handleFirstClick);
+    };
+  }, []);
 
   // Fallbacks if DB is empty
   const displayServices = services.length > 0 ? services : [
